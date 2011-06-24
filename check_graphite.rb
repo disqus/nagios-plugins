@@ -246,7 +246,8 @@ optparse = OptionParser.new do |opts|
   end
 
   options[:over] = false
-  opts.on('--over', 'Alert on values over threshold (default: false)') do |o|
+  opts.on('--over',
+          'Alert on values over threshold (default: false)') do |o|
     options[:over] = true
   end
 
@@ -256,13 +257,13 @@ optparse = OptionParser.new do |opts|
 
   options[:warn_count] = 0
   opts.on('-W [NUM]',
-          'Warn on NUM values beyond percent') do |n|
+          "Warn on NUM values beyond threshold (default: #{options[:warn_count]}") do |n|
     options[:warn_count] = n
   end
 
   options[:crit_count] = 0
   opts.on('-C [NUM]',
-          'Critical on NUM values beyond percent') do |n|
+          "Critical on NUM values beyond threshold (default: #{options[:crit_count]}") do |n|
     options[:crit_count] = n
   end
 end
