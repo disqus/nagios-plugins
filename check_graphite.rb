@@ -126,11 +126,10 @@ class GraphiteFetcher
           metrics_by_col[idx] += datum.to_f
           idx += 1
         end
-      else
-        raise "No data from graphite!"
       end
     end
 
+    raise "No data from graphite!" if metrics_by_col.empty? or metrics_by_col.nil?
     metrics_by_col
   end
 
