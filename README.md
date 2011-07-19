@@ -23,4 +23,4 @@ This is a collection of Nagios plugins written at Disqus.
 
 Mandatory arguments: -U, -t, --from, [--percent|--threshold]
 
-Targets are currently somwhat limited due to parsing of commas. (e.g. you can't use the summarize() function in Graphite).
+Targets are currently somwhat limited due to the way OptionParser handles commas. (e.g. you can't use the summarize() function in Graphite).
