@@ -313,21 +313,22 @@ class GraphiteFetcher
                "rawData=true"
     ].join('&')
 
-    begin
-      uri = URI.parse(full_url)
-      $log.debug("Initiating HTTP request to url:#{full_url}")
-      res = Net::HTTP.get_response(uri)
-    rescue => e
-      $log.fatal("Caught exception: #{e.message}")
-    end
+    uri = URI.parse(full_url)
+    $log.debug("Initiating HTTP request to url:#{full_url}")
+    res = Net::HTTP.get_response(uri)
 
+    res.value
     res.body.chomp.split("\n").each do |line|
-      data = line.split('|')[1]
-      idx = 0
-      data.split(',').select {|x| x != 'None'}.each do |datum|
-        metrics_by_col[idx] ||= 0
-        metrics_by_col[idx] += datum.to_f
-        idx += 1
+      if line.include?('|')
+        data = line.split('|')[1]
+        idx = 0
+        data.split(',').select {|x| x != 'None'}.each do |datum|
+          metrics_by_col[idx] ||= 0
+          metrics_by_col[idx] += datum.to_f
+          idx += 1
+        end
+      else
+        raise "No data from graphite!"
       end
     end
 
@@ -348,23 +349,15 @@ class GraphiteFetcher
   end
 end
 
-class Integer
-  def to_pct
-    self.to_i / 100.to_f
-  end
-end
-
 gs = GraphiteFetcher.new(:graphite_url => options[:graphite_url],
                          :targets => options[:targets],
                          :from => options[:from],
                          :until => options[:until])
 
-metrics = gs.fetch_metrics
-
 if options[:over]
   block = Proc.new do |x, y|
     if options[:percent]
-      result = x > y * options[:percent].to_i.to_pct
+      result = x > y * options[:percent].to_i / 100.to_f
     else
       result = x > options[:threshold].to_i
     end
@@ -374,7 +367,7 @@ if options[:over]
 elsif options[:under]
   block = Proc.new do |x, y|
     if options[:percent]
-      result = x < y * options[:percent].to_i.to_pct
+      result = x < y * options[:percent].to_i / 100.to_f
     else
       result = x < options[:threshold].to_i
     end
@@ -383,7 +376,13 @@ elsif options[:under]
   end
 end
 
-ceil, alerting = gs.check_threshold(metrics, block)
+begin
+  metrics = gs.fetch_metrics
+  ceil, alerting = gs.check_threshold(metrics, block)
+rescue => e
+  puts "CRITICAL: Caught exception: #{e.message}"
+  exit 2
+end
 
 if alerting.length > 0
   if alerting.length >= options[:crit_count].to_i
