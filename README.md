@@ -4,23 +4,27 @@ This is a collection of Nagios plugins written at Disqus.
 
 ## Scripts
 
-* check_graphite.rb
+* check_graphite.py
 
-## check_graphite.rb
+## check_graphite.py
 
-     % ./check_graphite.rb -h
-     Usage: ./check_graphite.rb [options]
-         -U, --graphite-url [URL]         Query Graphite on URL (default: http://localhost/)
-         -t, --targets [TARGET1,TARGET2]  Show metrics for TARGET1, TARGET2
-             --from TIME                  Set start time to TIME
-             --until [TIME]               Set end time to TIME (default: now)
-             --percent [PCT]              Set percent threshold to PCT 
-             --threshold [VAL]            set hard threshold to VAL 
-             --over                       Alert on values over threshold (default: false)
-             --under                      Alert on values under threshold (default: true)
-         -W [NUM]                         Warn on NUM values beyond threshold (default: 0)
-         -C [NUM]                         Critical on NUM values beyond threshold (default: 0)
+     % ./check_graphite.py -h
+     Usage: check_graphite.py [options]
 
-Mandatory arguments: -U, -t, --from, [--percent|--threshold]
+     Options:
+       -h, --help            show this help message and exit
+       -U URL, --graphite-url=URL
+                             Graphite URL [http://localhost/]
+       -t TARGET, --target=TARGET
+                             Target to check
+       --from=TIME_FROM      From timestamp/date
+       --until=TIME_UNTIL    Until timestamp/date [now]
+       --percentile=PERCENT  Use nPercentile Graphite function on the target
+                             (returns one datapoint)
+       --over                Over specified threshold [True]
+       --under               Under specified threshold [False]
+       -W NUM                Warn on >= NUM beyond threshold [0]
+       -C NUM                Critical on >= NUM beyond threshold [0]
+       --threshold=VALUE     Set threshold to VALUE
 
-Targets are currently somwhat limited due to the way OptionParser handles commas. (e.g. you can't use the summarize() function in Graphite).
+Mandatory arguments: -U, [-t|--target], --from, [--percent|--threshold]
