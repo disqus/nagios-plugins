@@ -52,8 +52,6 @@ class Graphite(object):
             return None
 
 def main():
-    percent_check = False
-
     parser = optparse.OptionParser()
     parser.add_option('-U', '--graphite-url', dest='graphite_url',
                       default='http://localhost/',
