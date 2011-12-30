@@ -146,7 +146,8 @@ def main():
                     (check_threshold, options.warning, ','.join(['%s' % str(x) for x in points_oob]))
                 status = 'WARNING'
             else:
-                print 'OK: all datapoint within threshold and count'
+                print 'OK: timeseries OK [threshold=%0.3f|maxwarn=%d|maxcrit=%d|datapoints=%s]' %\
+                    (check_threshold, options.warning, options.critical, ','.join(['%s' % str(x) for x in datapoints]))
                 status = 'OK'
     else:
         print 'CRITICAL: No output from Graphite!'
