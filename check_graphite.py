@@ -132,21 +132,26 @@ def main():
 
     if metric_data:
         for target in metric_data:
-            datapoints = [x[0] for x in target.get('datapoints', [])]
-            points_oob = graphite.check_datapoints(datapoints, check_threshold, check_func)
+            datapoints = [x[0] for x in target.get('datapoints', []) if x]
+            if datapoints:
+                points_oob = graphite.check_datapoints(datapoints, check_threshold, check_func)
 
-            if len(points_oob) > options.critical:
-                print 'CRITICAL: timeseries out of bounds [threshold=%0.3f|maxcrit=%d|datapoints=%s]' %\
-                    (check_threshold, options.critical, ','.join(['%s' % str(x) for x in points_oob]))
-                status = 'CRITICAL'
-            elif len(points_oob) > options.warning:
-                print 'WARNING: timeseries out of bounds [threshold=%0.3f|maxwarn=%d|datapoints=%s]' %\
-                    (check_threshold, options.warning, ','.join(['%s' % str(x) for x in points_oob]))
-                status = 'WARNING'
+                if len(points_oob) > options.critical:
+                    print 'CRITICAL: timeseries out of bounds [threshold=%0.3f|maxcrit=%d|datapoints=%s]' %\
+                        (check_threshold, options.critical, ','.join(['%s' % str(x) for x in points_oob]))
+                    status = 'CRITICAL'
+                elif len(points_oob) > options.warning:
+                    print 'WARNING: timeseries out of bounds [threshold=%0.3f|maxwarn=%d|datapoints=%s]' %\
+                        (check_threshold, options.warning, ','.join(['%s' % str(x) for x in points_oob]))
+                    status = 'WARNING'
+                else:
+                    print 'OK: timeseries OK [threshold=%0.3f|maxwarn=%d|maxcrit=%d|datapoints=%s]' %\
+                        (check_threshold, options.warning, options.critical, ','.join(['%s' % str(x) for x in datapoints]))
+                    status = 'OK'
             else:
-                print 'OK: timeseries OK [threshold=%0.3f|maxwarn=%d|maxcrit=%d|datapoints=%s]' %\
-                    (check_threshold, options.warning, options.critical, ','.join(['%s' % str(x) for x in datapoints]))
-                status = 'OK'
+                print 'CRITICAL: No datapoints for target %s!' % target.get('target')
+                status = 'CRITICAL'
+
     else:
         print 'CRITICAL: No output from Graphite!'
         status = 'CRITICAL'
