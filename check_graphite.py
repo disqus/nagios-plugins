@@ -49,22 +49,21 @@ class Graphite(object):
         except urllib2.URLError:
             return None
 
-    def generate_output(self, oob, all_points, **kwargs):
+    def generate_output(self, datapoints, warn_oob, crit_oob, **kwargs):
         check_output = dict(OK=[], WARNING=[], CRITICAL=[])
         warning = kwargs['warning']
         critical = kwargs['critical']
-        threshold = kwargs.get('threshold', None)
         target = kwargs.get('target', 'timeseries')
 
-        if len(oob) > critical:
-            check_output['CRITICAL'].append('%s out of bounds [threshold=%s|maxcrit=%d|datapoints=%s]' %\
-                (target, str(threshold), critical, ','.join(['%s' % str(x) for x in oob])))
-        elif len(oob) > warning:
-            check_output['WARNING'].append('%s out of bounds [threshold=%s|maxwarn=%d|datapoints=%s]' %\
-                (target, str(threshold), warning, ','.join(['%s' % str(x) for x in oob])))
+        if crit_oob:
+            check_output['CRITICAL'].append('%s [crit=%d|datapoints=%s]' %\
+                (target, critical, ','.join(['%s' % str(x) for x in crit_oob])))
+        elif warn_oob:
+            check_output['WARNING'].append('%s [warn=%d|datapoints=%s]' %\
+                (target, warning, ','.join(['%s' % str(x) for x in warn_oob])))
         else:
-            check_output['OK'].append('%s OK [threshold=%s|maxwarn=%d|maxcrit=%d|datapoints=%s]' %\
-                (target, str(threshold), warning, critical, ','.join(['%s' % str(x) for x in all_points])))
+            check_output['OK'].append('%s [warn=%d|crit=%d|datapoints=%s]' %\
+                (target, warning, critical, ','.join(['%s' % str(x) for x in datapoints])))
 
         return check_output
 
@@ -91,28 +90,21 @@ def do_checks():
     parser.add_option('--over', dest='over',
                       default=True,
                       action='store_true',
-                      help='Over specified threshold [%default]')
+                      help='Over specified WARNING or CRITICAL threshold [%default]')
     parser.add_option('--under', dest='under',
                       default=False,
                       action='store_true',
-                      help='Under specified threshold [%default]')
+                      help='Under specified WARNING or CRITICAL threshold [%default]')
     parser.add_option('-W', dest='warning',
-                      default=0,
-                      type='int',
-                      metavar='NUM',
-                      help='Warn on >= NUM beyond threshold [%default]')
-    parser.add_option('-C', dest='critical',
-                      default=0,
-                      type='int',
-                      metavar='NUM',
-                      help='Critical on >= NUM beyond threshold [%default]')
-    parser.add_option('--threshold', dest='threshold',
                       metavar='VALUE',
-                      help='Set threshold to VALUE')
+                      help='Warning if datapoints over VALUE')
+    parser.add_option('-C', dest='critical',
+                      metavar='VALUE',
+                      help='Critical if datapoints over VALUE')
 
     (options, args) = parser.parse_args()
 
-    for mandatory in ['time_from', 'targets', 'threshold']:
+    for mandatory in ['time_from', 'targets']:
         if not options.__dict__[mandatory]:
             print 'ERROR: missing option: --%s\n' % mandatory.replace('time_', '').replace('targets', 'target')
             parser.print_help()
@@ -129,20 +121,14 @@ def do_checks():
         targets = options.targets
 
     try:
-        if options.threshold.endswith('%'):
-            check_threshold = float(options.threshold.rstrip('%'))
-            if options.over:
-                check_func = lambda x, y: (x > y) / 100.0
-            else:
-                check_func = lambda x, y: (x < y) / 100.0
+        warn = float(options.warning)
+        crit = float(options.critical)
+        if options.over:
+            check_func = lambda x, y: x > y
         else:
-            check_threshold = float(options.threshold)
-            if options.over:
-                check_func = lambda x, y: x > y
-            else:
-                check_func = lambda x, y: x < y
-    except:
-        print 'ERROR: threshold is not a number\n'
+            check_func = lambda x, y: x < y
+    except ValueError:
+        print 'ERROR: WARNING or CRITICAL threshold is not a number\n'
         parser.print_help()
         sys.exit(NAGIOS_STATUSES['UNKNOWN'])
 
@@ -153,13 +139,14 @@ def do_checks():
     if metric_data:
         for target in metric_data:
             datapoints = [x[0] for x in target.get('datapoints', []) if x]
-            oob = graphite.check_datapoints(datapoints, check_func, threshold=check_threshold)
-            check_output[target['target']] = graphite.generate_output(oob, datapoints,
+            crit_oob = graphite.check_datapoints(datapoints, check_func, threshold=crit)
+            warn_oob = graphite.check_datapoints(datapoints, check_func, threshold=warn)
+            check_output[target['target']] = graphite.generate_output(datapoints,
+                                                                      warn_oob,
+                                                                      crit_oob,
                                                                       target=target['target'],
-                                                                      threshold=check_threshold,
-                                                                      critical=options.critical,
-                                                                      warning=options.warning)
-
+                                                                      warning=warn,
+                                                                      critical=crit)
         return check_output
     else:
         print 'CRITICAL: No output from Graphite!'
