@@ -97,10 +97,10 @@ def do_checks():
                       help='Under specified WARNING or CRITICAL threshold [%default]')
     parser.add_option('-W', dest='warning',
                       metavar='VALUE',
-                      help='Warning if datapoints over VALUE')
+                      help='Warning if datapoints beyond VALUE')
     parser.add_option('-C', dest='critical',
                       metavar='VALUE',
-                      help='Critical if datapoints over VALUE')
+                      help='Critical if datapoints beyond VALUE')
 
     (options, args) = parser.parse_args()
 
@@ -117,6 +117,12 @@ def do_checks():
         targets = ['nPercentile(%s, %d)' % (options.targets[0], options.percentile)]
     else:
         targets = options.targets
+
+    for mandatory in ['warning', 'critical']:
+      if not options.__dict__[mandatory]:
+          print 'ERROR: missing option: --%s\n' % mandatory
+          parser.print_help()
+          sys.exit(NAGIOS_STATUSES['UNKNOWN'])
 
     try:
         warn = float(options.warning)
