@@ -35,6 +35,19 @@ class Graphite(object):
             urllib.urlencode(params)
 
     def check_datapoints(self, datapoints, func, **kwargs):
+        """Find out of band datapoints
+
+        Args:
+            datapoints (list): The list of datapoints to check
+            func (function): The comparator function to call on each datapoint
+
+        Kwargs:
+            threshold (float): `func` is called for each datapoint against `threshold`
+            compare (list): `func` is called using each member of `datapoints` against its sister member in `compare`
+
+        Returns:
+            The list of out of band datapoints
+        """
         if kwargs.get('threshold'):
             return [x for x in datapoints if x and func(x, kwargs['threshold'])]
         elif kwargs.get('compare'):
@@ -52,6 +65,18 @@ class Graphite(object):
             return None
 
     def generate_output(self, datapoints, *args, **kwargs):
+        """Generate check output
+
+        Args:
+            datapoints (list): The list of datapoints to check
+            warn_oob (list): Optional list of datapoints considered in warning state
+            crit_oob (list): Mandatory list of datapoints considered in warning state
+
+        Kwargs:
+            warning (float): The check's warning threshold
+            critical (float): The check's critical threshold
+            target (str): The target for `datapoints`
+        """
         check_output = dict(OK=[], WARNING=[], CRITICAL=[])
         warning = kwargs.get('warning', 0)
         critical = kwargs.get('critical', 0)
