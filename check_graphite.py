@@ -116,8 +116,7 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    mandatory  = dict(target='target', _from='from')
-    if not all([getattr(options, option) for option in mandatory]):
+    if not all([getattr(options, option) for option in ('_from', 'target')]):
         parser.print_help()
         sys.exit(NAGIOS_STATUSES['UNKNOWN'])
 
