@@ -76,6 +76,9 @@ class Graphite(object):
             warning (float): The check's warning threshold
             critical (float): The check's critical threshold
             target (str): The target for `datapoints`
+
+        Returns:
+            A dictionary of datapoints grouped by their status ('CRITICAL', 'WARNING', 'OK')
         """
         check_output = dict(OK=[], WARNING=[], CRITICAL=[])
         warning = kwargs.get('warning', 0)
