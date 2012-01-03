@@ -60,7 +60,7 @@ class Graphite(object):
         if len(args) > 1:
             (warn_oob, crit_oob) = args
         else:
-            crit_oob = args[0]
+            crit_oob = [x for x in args[0] if x]
             warn_oob = []
 
         if crit_oob:
