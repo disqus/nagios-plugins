@@ -22,14 +22,14 @@ NAGIOS_STATUSES = {
 
 class Graphite(object):
 
-    def __init__(self, url, targets, time_from, time_until):
+    def __init__(self, url, targets, _from, _until):
         self.url = url.rstrip('/')
         self.targets = targets
-        self.time_from = time_from
-        self.time_until = time_until
+        self._from = _from
+        self._until = _until
         params = [('target', t) for t in self.targets] +\
-            [('from', self.time_from)] +\
-            [('until', self.time_until)] +\
+            [('from', self._from)] +\
+            [('until', self._until)] +\
             [('format', 'json')]
         self.full_url = self.url + '/render?' +\
             urllib.urlencode(params)
@@ -82,12 +82,12 @@ if __name__ == '__main__':
                       default='http://localhost/',
                       metavar='URL',
                       help='Graphite URL [%default]')
-    parser.add_option('-t', '--target', dest='targets',
+    parser.add_option('-t', '--target', dest='target',
                       action='append',
                       help='Target to check')
-    parser.add_option('--from', dest='time_from',
+    parser.add_option('--from', dest='_from',
                       help='From timestamp/date')
-    parser.add_option('--until', dest='time_until',
+    parser.add_option('--until', dest='_until',
                       default='now',
                       help='Until timestamp/date [%default]')
     parser.add_option('--percentile', dest='percentile',
@@ -116,37 +116,34 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    for mandatory in ['time_from', 'targets']:
-        if not options.__dict__[mandatory]:
-            print 'ERROR: missing option: --%s\n' % mandatory.replace('time_', '').replace('targets', 'target')
-            parser.print_help()
-            sys.exit(NAGIOS_STATUSES['UNKNOWN'])
+    mandatory  = dict(target='target', _from='from')
+    if not all([getattr(options, option) for option in mandatory]):
+        parser.print_help()
+        sys.exit(NAGIOS_STATUSES['UNKNOWN'])
 
-    real_from = options.time_from
+    real_from = options._from
 
     if options.under:
         options.over = False
 
     if options.confidence_bands:
-        targets = [options.targets[0], 'holtWintersConfidenceBands(%s)' % options.targets[0]]
+        targets = [options.target[0], 'holtWintersConfidenceBands(%s)' % options.target[0]]
         if options.over:
             check_func = lambda x, y: x > y
         else:
             check_func = lambda x, y: x < y
         check_threshold = None
-        from_slice = int(options.time_from) * -1
+        from_slice = int(options._from) * -1
         real_from = '-2w'
     else:
-        for mandatory in ['warning', 'critical']:
-          if not options.__dict__[mandatory]:
-              print 'ERROR: missing option: --%s\n' % mandatory
-              parser.print_help()
-              sys.exit(NAGIOS_STATUSES['UNKNOWN'])
+        if not all([getattr(options, option) for option in ('critical', 'warning')]):
+            parser.print_help()
+            sys.exit(NAGIOS_STATUSES['UNKNOWN'])
 
         if options.percentile:
-            targets = ['nPercentile(%s, %d)' % (options.targets[0], options.percentile)]
+            targets = ['nPercentile(%s, %d)' % (options.target[0], options.percentile)]
         else:
-            targets = options.targets
+            targets = options.target
 
         try:
             warn = float(options.warning)
@@ -161,7 +158,7 @@ if __name__ == '__main__':
             sys.exit(NAGIOS_STATUSES['UNKNOWN'])
 
     check_output = {}
-    graphite = Graphite(options.graphite_url, targets, real_from, options.time_until)
+    graphite = Graphite(options.graphite_url, targets, real_from, options._until)
     metric_data = graphite.fetch_metrics()
 
     if metric_data:
