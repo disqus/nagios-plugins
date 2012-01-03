@@ -48,7 +48,7 @@ class Graphite(object):
                 return None
             else:
                 return json.loads(response.read())
-        except urllib2.URLError:
+        except urllib2.URLError, TypeError:
             return None
 
     def generate_output(self, datapoints, *args, **kwargs):
