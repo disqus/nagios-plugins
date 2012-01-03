@@ -56,13 +56,13 @@ class Graphite(object):
         target = kwargs.get('target', 'timeseries')
 
         if crit_oob:
-            check_output['CRITICAL'].append('%s [crit=%d|datapoints=%s]' %\
+            check_output['CRITICAL'].append('%s [crit=%f|datapoints=%s]' %\
                 (target, critical, ','.join(['%s' % str(x) for x in crit_oob])))
         elif warn_oob:
-            check_output['WARNING'].append('%s [warn=%d|datapoints=%s]' %\
+            check_output['WARNING'].append('%s [warn=%f|datapoints=%s]' %\
                 (target, warning, ','.join(['%s' % str(x) for x in warn_oob])))
         else:
-            check_output['OK'].append('%s [warn=%d|crit=%d|datapoints=%s]' %\
+            check_output['OK'].append('%s [warn=%0.3f|crit=%f|datapoints=%s]' %\
                 (target, warning, critical, ','.join(['%s' % str(x) for x in datapoints])))
 
         return check_output
