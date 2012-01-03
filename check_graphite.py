@@ -28,9 +28,9 @@ class Graphite(object):
         self.time_from = time_from
         self.time_until = time_until
         params = [('target', t) for t in self.targets] +\
-          [('from', self.time_from)] +\
-          [('until', self.time_until)] +\
-          [('format', 'json')]
+            [('from', self.time_from)] +\
+            [('until', self.time_until)] +\
+            [('format', 'json')]
         self.full_url = self.url + '/render?' +\
             urllib.urlencode(params)
 
