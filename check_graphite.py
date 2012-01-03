@@ -76,7 +76,7 @@ class Graphite(object):
         return check_output
 
 
-def do_checks():
+if __name__ == '__main__':
     parser = optparse.OptionParser()
     parser.add_option('-U', '--graphite-url', dest='graphite_url',
                       default='http://localhost/',
@@ -193,15 +193,11 @@ def do_checks():
                                                                           target=target['target'],
                                                                           warning=warn,
                                                                           critical=crit)
-        return check_output
     else:
         print 'CRITICAL: No output from Graphite!'
         sys.exit(NAGIOS_STATUSES['CRITICAL'])
 
-if __name__ == '__main__':
-    output = do_checks()
-
-    for target, messages in output.iteritems():
+    for target, messages in check_output.iteritems():
         if messages['CRITICAL']:
             exit_code = NAGIOS_STATUSES['CRITICAL']
         elif messages['WARNING']:
