@@ -36,7 +36,7 @@ class Graphite(object):
 
     def check_datapoints(self, datapoints, func, **kwargs):
         if kwargs.get('threshold'):
-            return [x for x in datapoints if func(x, kwargs['threshold'])]
+            return [x for x in datapoints if x and func(x, kwargs['threshold'])]
 
     def fetch_metrics(self):
         try:
@@ -110,10 +110,8 @@ def do_checks():
             parser.print_help()
             sys.exit(NAGIOS_STATUSES['UNKNOWN'])
 
-    if options.over and options.under:
-        print 'ERROR: --over and --under are mutually exclusive\n'
-        parser.print_help()
-        sys.exit(NAGIOS_STATUSES['UNKNOWN'])
+    if options.under:
+        options.over = False
 
     if options.percentile:
         targets = ['nPercentile(%s, %d)' % (options.targets[0], options.percentile)]
