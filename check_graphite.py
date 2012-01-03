@@ -37,6 +37,8 @@ class Graphite(object):
     def check_datapoints(self, datapoints, func, **kwargs):
         if kwargs.get('threshold'):
             return [x for x in datapoints if x and func(x, kwargs['threshold'])]
+        elif kwargs.get('compare'):
+            return [datapoints[x] for x in xrange(len(datapoints)) if func(datapoints[x], kwargs['compare'][x])]
 
     def fetch_metrics(self):
         try:
@@ -49,11 +51,17 @@ class Graphite(object):
         except urllib2.URLError:
             return None
 
-    def generate_output(self, datapoints, warn_oob, crit_oob, **kwargs):
+    def generate_output(self, datapoints, *args, **kwargs):
         check_output = dict(OK=[], WARNING=[], CRITICAL=[])
-        warning = kwargs['warning']
-        critical = kwargs['critical']
+        warning = kwargs.get('warning', 0)
+        critical = kwargs.get('critical', 0)
         target = kwargs.get('target', 'timeseries')
+
+        if len(args) > 1:
+            (warn_oob, crit_oob) = args
+        else:
+            crit_oob = args[0]
+            warn_oob = []
 
         if crit_oob:
             check_output['CRITICAL'].append('%s [crit=%f|datapoints=%s]' %\
@@ -87,6 +95,10 @@ def do_checks():
                       type='int',
                       metavar='PERCENT',
                       help='Use nPercentile Graphite function on the target (returns one datapoint)')
+    parser.add_option('--confidence', dest='confidence_bands',
+                      default=False,
+                      action='store_true',
+                      help='Use holtWintersConfidenceBands Graphite function on the target')
     parser.add_option('--over', dest='over',
                       default=True,
                       action='store_true',
@@ -110,47 +122,77 @@ def do_checks():
             parser.print_help()
             sys.exit(NAGIOS_STATUSES['UNKNOWN'])
 
+    real_from = options.time_from
+
     if options.under:
         options.over = False
 
-    if options.percentile:
-        targets = ['nPercentile(%s, %d)' % (options.targets[0], options.percentile)]
-    else:
-        targets = options.targets
-
-    for mandatory in ['warning', 'critical']:
-      if not options.__dict__[mandatory]:
-          print 'ERROR: missing option: --%s\n' % mandatory
-          parser.print_help()
-          sys.exit(NAGIOS_STATUSES['UNKNOWN'])
-
-    try:
-        warn = float(options.warning)
-        crit = float(options.critical)
+    if options.confidence_bands:
+        targets = [options.targets[0], 'holtWintersConfidenceBands(%s)' % options.targets[0]]
         if options.over:
             check_func = lambda x, y: x > y
         else:
             check_func = lambda x, y: x < y
-    except ValueError:
-        print 'ERROR: WARNING or CRITICAL threshold is not a number\n'
-        parser.print_help()
-        sys.exit(NAGIOS_STATUSES['UNKNOWN'])
+        check_threshold = None
+        from_slice = int(options.time_from) * -1
+        real_from = '-2w'
+    else:
+        for mandatory in ['warning', 'critical']:
+          if not options.__dict__[mandatory]:
+              print 'ERROR: missing option: --%s\n' % mandatory
+              parser.print_help()
+              sys.exit(NAGIOS_STATUSES['UNKNOWN'])
+
+        if options.percentile:
+            targets = ['nPercentile(%s, %d)' % (options.targets[0], options.percentile)]
+        else:
+            targets = options.targets
+
+        try:
+            warn = float(options.warning)
+            crit = float(options.critical)
+            if options.over:
+                check_func = lambda x, y: x > y
+            else:
+                check_func = lambda x, y: x < y
+        except ValueError:
+            print 'ERROR: WARNING or CRITICAL threshold is not a number\n'
+            parser.print_help()
+            sys.exit(NAGIOS_STATUSES['UNKNOWN'])
 
     check_output = {}
-    graphite = Graphite(options.graphite_url, targets, options.time_from, options.time_until)
+    graphite = Graphite(options.graphite_url, targets, real_from, options.time_until)
     metric_data = graphite.fetch_metrics()
 
     if metric_data:
-        for target in metric_data:
-            datapoints = [x[0] for x in target.get('datapoints', []) if x]
-            crit_oob = graphite.check_datapoints(datapoints, check_func, threshold=crit)
-            warn_oob = graphite.check_datapoints(datapoints, check_func, threshold=warn)
-            check_output[target['target']] = graphite.generate_output(datapoints,
-                                                                      warn_oob,
-                                                                      crit_oob,
-                                                                      target=target['target'],
-                                                                      warning=warn,
-                                                                      critical=crit)
+        if options.confidence_bands:
+            for target in metric_data:
+                if target['target'].startswith('holtWintersConfidenceUpper'):
+                    if options.over:
+                      expected_datapoints = [x[0] for x in target.get('datapoints', [])][from_slice:]
+                elif target['target'].startswith('holtWintersConfidenceLower'):
+                    if options.under:
+                      expected_datapoints = [x[0] for x in target.get('datapoints', [])][from_slice:]
+                else:
+                    actual_datapoints = [x[0] for x in target.get('datapoints', [])][from_slice:]
+                    target_name = target['target']
+
+            if actual_datapoints and expected_datapoints:
+                points_oob = graphite.check_datapoints(actual_datapoints, check_func, compare=expected_datapoints)
+                check_output[target['target']] = graphite.generate_output(actual_datapoints,
+                                                                          points_oob,
+                                                                          target=target['target'])
+        else:
+            for target in metric_data:
+                datapoints = [x[0] for x in target.get('datapoints', []) if x]
+                crit_oob = graphite.check_datapoints(datapoints, check_func, threshold=crit)
+                warn_oob = graphite.check_datapoints(datapoints, check_func, threshold=warn)
+                check_output[target['target']] = graphite.generate_output(datapoints,
+                                                                          warn_oob,
+                                                                          crit_oob,
+                                                                          target=target['target'],
+                                                                          warning=warn,
+                                                                          critical=crit)
         return check_output
     else:
         print 'CRITICAL: No output from Graphite!'
