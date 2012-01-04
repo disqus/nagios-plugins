@@ -207,20 +207,21 @@ if __name__ == '__main__':
 
     if metric_data:
         if options.confidence_bands:
-            actual_datapoints = [x[0] for x in metric_data[0].get('datapoints', [])][from_slice:]
+            actual = [x[0] for x in metric_data[0].get('datapoints', [])][from_slice:]
             target_name = metric_data[0]['target']
+            kwargs = {}
 
             if options.over:
-                expected_datapoints = [x[0] for x in metric_data[1].get('datapoints', [])][from_slice:]
+                kwargs['bounds'] = [x[0] for x in metric_data[1].get('datapoints', [])][from_slice:]
             elif options.under:
-                expected_datapoints = [x[0] for x in metric_data[2].get('datapoints', [])][from_slice:]
+                kwargs['bounds'] = [x[0] for x in metric_data[2].get('datapoints', [])][from_slice:]
 
             if options.compare:
-                compare_datapoints = [x[0] for x in metric_data[3].get('datapoints', [])][from_slice:]
+                kwargs['compare'] = [x[0] for x in metric_data[3].get('datapoints', [])][from_slice:]
 
-            if actual_datapoints and expected_datapoints:
-                points_oob = graphite.check_datapoints(actual_datapoints, check_func, bounds=expected_datapoints, compare=compare_datapoints)
-                check_output[target_name] = graphite.generate_output(actual_datapoints,
+            if actual and kwargs['bounds']:
+                points_oob = graphite.check_datapoints(actual, check_func, **kwargs)
+                check_output[target_name] = graphite.generate_output(actual,
                                                                      points_oob,
                                                                      count=options.count,
                                                                      target=target_name)
