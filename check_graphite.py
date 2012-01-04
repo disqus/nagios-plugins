@@ -35,23 +35,27 @@ class Graphite(object):
             urllib.urlencode(params)
 
     def check_datapoints(self, datapoints, func, **kwargs):
-        """Find out of band datapoints
+        """Find alerting datapoints
 
         Args:
             datapoints (list): The list of datapoints to check
             func (function): The comparator function to call on each datapoint
 
         Kwargs:
+            bounds (list): Compare against `datapoints` to find out of bounds list
+            compare (list): Used for comparison if `datapoints` is out of bounds
             threshold (float): `func` is called for each datapoint against `threshold`
-            compare (list): `func` is called using each member of `datapoints` against its sister member in `compare`
 
         Returns:
-            The list of out of band datapoints
+            The list of out of bounds datapoints
         """
         if kwargs.get('threshold'):
             return [x for x in datapoints if x and func(x, kwargs['threshold'])]
-        elif kwargs.get('compare'):
-            return [datapoints[x] for x in xrange(len(datapoints)) if func(datapoints[x], kwargs['compare'][x])]
+        elif kwargs.get('bounds'):
+            if kwargs.get('compare'):
+                return [datapoints[x] for x in xrange(len(datapoints)) if func(datapoints[x], kwargs['bounds'][x]) and func(datapoints[x], kwargs['compare'][x])]
+            else:
+                return [datapoints[x] for x in xrange(len(datapoints)) if func(datapoints[x], kwargs['bounds'][x])]
 
     def fetch_metrics(self):
         try:
@@ -73,6 +77,7 @@ class Graphite(object):
             crit_oob (list): Mandatory list of datapoints considered in warning state
 
         Kwargs:
+            count (int): Number of metrics that would generate an alert
             warning (float): The check's warning threshold
             critical (float): The check's critical threshold
             target (str): The target for `datapoints`
@@ -81,6 +86,7 @@ class Graphite(object):
             A dictionary of datapoints grouped by their status ('CRITICAL', 'WARNING', 'OK')
         """
         check_output = dict(OK=[], WARNING=[], CRITICAL=[])
+        count = kwargs['count']
         warning = kwargs.get('warning', 0)
         critical = kwargs.get('critical', 0)
         target = kwargs.get('target', 'timeseries')
@@ -91,10 +97,10 @@ class Graphite(object):
             crit_oob = [x for x in args[0] if x]
             warn_oob = []
 
-        if crit_oob:
+        if len(crit_oob) >= count:
             check_output['CRITICAL'].append('%s [crit=%f|datapoints=%s]' %\
                 (target, critical, ','.join(['%s' % str(x) for x in crit_oob])))
-        elif warn_oob:
+        elif len(warn_oob) >= count:
             check_output['WARNING'].append('%s [warn=%f|datapoints=%s]' %\
                 (target, warning, ','.join(['%s' % str(x) for x in warn_oob])))
         else:
@@ -113,11 +119,17 @@ if __name__ == '__main__':
     parser.add_option('-t', '--target', dest='target',
                       action='append',
                       help='Target to check')
+    parser.add_option('--compare', dest='compare',
+                      metavar='SERIES',
+                      help='Compare TARGET against SERIES')
     parser.add_option('--from', dest='_from',
                       help='From timestamp/date')
     parser.add_option('--until', dest='_until',
                       default='now',
                       help='Until timestamp/date [%default]')
+    parser.add_option('-c', '--count', dest='count',
+                      default=0,
+                      help='Alert on at least COUNT metrics [%default]')
     parser.add_option('--percentile', dest='percentile',
                       default=0,
                       type='int',
@@ -162,6 +174,9 @@ if __name__ == '__main__':
         check_threshold = None
         from_slice = int(options._from) * -1
         real_from = '-2w'
+
+        if options.compare:
+            targets.append(options.compare)
     else:
         if not all([getattr(options, option) for option in ('critical', 'warning')]):
             parser.print_help()
@@ -190,22 +205,23 @@ if __name__ == '__main__':
 
     if metric_data:
         if options.confidence_bands:
-            for target in metric_data:
-                if target['target'].startswith('holtWintersConfidenceUpper'):
-                    if options.over:
-                      expected_datapoints = [x[0] for x in target.get('datapoints', [])][from_slice:]
-                elif target['target'].startswith('holtWintersConfidenceLower'):
-                    if options.under:
-                      expected_datapoints = [x[0] for x in target.get('datapoints', [])][from_slice:]
-                else:
-                    actual_datapoints = [x[0] for x in target.get('datapoints', [])][from_slice:]
-                    target_name = target['target']
+            actual_datapoints = [x[0] for x in metric_data[0].get('datapoints', [])][from_slice:]
+            target_name = metric_data[0]['target']
+
+            if options.over:
+                expected_datapoints = [x[0] for x in metric_data[1].get('datapoints', [])][from_slice:]
+            elif options.under:
+                expected_datapoints = [x[0] for x in metric_data[2].get('datapoints', [])][from_slice:]
+
+            if options.compare:
+                compare_datapoints = [x[0] for x in metric_data[3].get('datapoints', [])][from_slice:]
 
             if actual_datapoints and expected_datapoints:
-                points_oob = graphite.check_datapoints(actual_datapoints, check_func, compare=expected_datapoints)
-                check_output[target['target']] = graphite.generate_output(actual_datapoints,
-                                                                          points_oob,
-                                                                          target=target['target'])
+                points_oob = graphite.check_datapoints(actual_datapoints, check_func, bounds=expected_datapoints, compare=compare_datapoints)
+                check_output[target_name] = graphite.generate_output(actual_datapoints,
+                                                                     points_oob,
+                                                                     count=options.count,
+                                                                     target=target_name)
         else:
             for target in metric_data:
                 datapoints = [x[0] for x in target.get('datapoints', []) if x]
@@ -214,6 +230,7 @@ if __name__ == '__main__':
                 check_output[target['target']] = graphite.generate_output(datapoints,
                                                                           warn_oob,
                                                                           crit_oob,
+                                                                          count=options.count,
                                                                           target=target['target'],
                                                                           warning=warn,
                                                                           critical=crit)

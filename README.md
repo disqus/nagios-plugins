@@ -15,10 +15,13 @@ This is a collection of Nagios plugins written at Disqus.
        -h, --help            show this help message and exit
        -U URL, --graphite-url=URL
                              Graphite URL [http://localhost/]
-       -t TARGETS, --target=TARGETS
+       -t TARGET, --target=TARGET
                              Target to check
-       --from=TIME_FROM      From timestamp/date
-       --until=TIME_UNTIL    Until timestamp/date [now]
+       --compare=SERIES      Compare TARGET against SERIES
+       --from=_FROM          From timestamp/date
+       --until=_UNTIL        Until timestamp/date [now]
+       -c COUNT, --count=COUNT
+                             Alert on at least COUNT metrics [0]
        --percentile=PERCENT  Use nPercentile Graphite function on the target
                              (returns one datapoint)
        --confidence          Use holtWintersConfidenceBands Graphite function on
