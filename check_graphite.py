@@ -197,7 +197,7 @@ if __name__ == '__main__':
             else:
                 check_func = lambda x, y: x < y
         except ValueError:
-            print 'ERROR: WARNING or CRITICAL threshold is not a number (%s %s)\n' % (options.critical, options.warning)
+            print 'ERROR: WARNING or CRITICAL threshold is not a number\n'
             parser.print_help()
             sys.exit(NAGIOS_STATUSES['UNKNOWN'])
 
