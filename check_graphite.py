@@ -49,10 +49,10 @@ class Graphite(object):
         Returns:
             The list of out of bounds datapoints
         """
-        if kwargs.get('threshold'):
+        if 'threshold' in kwargs:
             return [x for x in datapoints if x and func(x, kwargs['threshold'])]
-        elif kwargs.get('bounds'):
-            if kwargs.get('compare'):
+        elif 'bounds' in kwargs:
+            if 'compare' in kwargs:
                 return [datapoints[x] for x in xrange(len(datapoints)) if func(datapoints[x], kwargs['bounds'][x]) and func(datapoints[x], kwargs['compare'][x])]
             else:
                 return [datapoints[x] for x in xrange(len(datapoints)) if func(datapoints[x], kwargs['bounds'][x])]
