@@ -97,10 +97,10 @@ class Graphite(object):
             crit_oob = [x for x in args[0] if x]
             warn_oob = []
 
-        if len(crit_oob) >= count:
+        if crit_oob and len(crit_oob) >= count:
             check_output['CRITICAL'].append('%s [crit=%f|datapoints=%s]' %\
                 (target, critical, ','.join(['%s' % str(x) for x in crit_oob])))
-        elif len(warn_oob) >= count:
+        elif warn_oob and len(warn_oob) >= count:
             check_output['WARNING'].append('%s [warn=%f|datapoints=%s]' %\
                 (target, warning, ','.join(['%s' % str(x) for x in warn_oob])))
         else:
@@ -148,9 +148,11 @@ if __name__ == '__main__':
                       action='store_true',
                       help='Under specified WARNING or CRITICAL threshold [%default]')
     parser.add_option('-W', dest='warning',
+                      type='float',
                       metavar='VALUE',
                       help='Warning if datapoints beyond VALUE')
     parser.add_option('-C', dest='critical',
+                      type='float',
                       metavar='VALUE',
                       help='Critical if datapoints beyond VALUE')
 
@@ -195,7 +197,7 @@ if __name__ == '__main__':
             else:
                 check_func = lambda x, y: x < y
         except ValueError:
-            print 'ERROR: WARNING or CRITICAL threshold is not a number\n'
+            print 'ERROR: WARNING or CRITICAL threshold is not a number (%s %s)\n' % (options.critical, options.warning)
             parser.print_help()
             sys.exit(NAGIOS_STATUSES['UNKNOWN'])
 
