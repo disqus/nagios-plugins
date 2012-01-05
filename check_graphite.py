@@ -129,6 +129,7 @@ if __name__ == '__main__':
                       help='Until timestamp/date [%default]')
     parser.add_option('-c', '--count', dest='count',
                       default=0,
+                      type='int',
                       help='Alert on at least COUNT metrics [%default]')
     parser.add_option('--percentile', dest='percentile',
                       default=0,
