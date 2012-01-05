@@ -227,7 +227,7 @@ if __name__ == '__main__':
                     print 'CRITICAL: No compare target output from Graphite!'
                     sys.exit(NAGIOS_STATUSES['CRITICAL'])
 
-            if all(actual) and all(kwargs['bounds']):
+            if any(actual) and any(kwargs['bounds']):
                 points_oob = graphite.check_datapoints(actual, check_func, **kwargs)
                 check_output[target_name] = graphite.generate_output(actual,
                                                                      points_oob,
