@@ -223,7 +223,7 @@ if __name__ == '__main__':
 
             if options.compare:
                 kwargs['compare'] = [x[0] for x in metric_data[3].get('datapoints', [])][from_slice:]
-                if not all(kwargs['compare']):
+                if not any(kwargs['compare']):
                     print 'CRITICAL: No compare target output from Graphite!'
                     sys.exit(NAGIOS_STATUSES['CRITICAL'])
 
@@ -240,7 +240,7 @@ if __name__ == '__main__':
         else:
             for target in metric_data:
                 datapoints = [x[0] for x in target.get('datapoints', []) if x]
-                if not all(datapoints) and not options.empty_ok:
+                if not any(datapoints) and not options.empty_ok:
                     print 'CRITICAL: No output from Graphite for target(s): %s' % ', '.join(targets)
                     sys.exit(NAGIOS_STATUSES['CRITICAL'])
 
