@@ -34,28 +34,29 @@ class Graphite(object):
         self.full_url = self.url + '/render?' +\
             urllib.urlencode(params)
 
-    def check_datapoints(self, datapoints, func, **kwargs):
+    def check_datapoints(self, datapoints, check_func, **kwargs):
         """Find alerting datapoints
 
         Args:
             datapoints (list): The list of datapoints to check
-            func (function): The comparator function to call on each datapoint
 
         Kwargs:
+            check_func (function): The function to find out of bounds datapoints
             bounds (list): Compare against `datapoints` to find out of bounds list
             compare (list): Used for comparison if `datapoints` is out of bounds
-            threshold (float): `func` is called for each datapoint against `threshold`
+            threshold (float): `check_func` is called for each datapoint against `threshold`
+            beyond (float): Return datapoint if `beyond` value in bounds list (percentage).
 
         Returns:
             The list of out of bounds datapoints
         """
         if 'threshold' in kwargs:
-            return [x for x in datapoints if x and func(x, kwargs['threshold'])]
+            return [x for x in datapoints if x and check_func(x, kwargs['threshold'])]
         elif 'bounds' in kwargs:
             if 'compare' in kwargs:
-                return [datapoints[x] for x in xrange(len(datapoints)) if func(datapoints[x], kwargs['bounds'][x]) and func(datapoints[x], kwargs['compare'][x])]
+                return [datapoints[x] for x in xrange(len(datapoints)) if datapoints[x] and check_func(datapoints[x] / kwargs['bounds'][x], kwargs['beyond']) and check_func(datapoints[x], kwargs['compare'][x])]
             else:
-                return [datapoints[x] for x in xrange(len(datapoints)) if func(datapoints[x], kwargs['bounds'][x])]
+                return [datapoints[x] for x in xrange(len(datapoints)) if x and check_func(datapoints[x], kwargs['bounds'][x])]
 
     def fetch_metrics(self):
         try:
@@ -131,6 +132,10 @@ if __name__ == '__main__':
                       default=0,
                       type='int',
                       help='Alert on at least COUNT metrics [%default]')
+    parser.add_option('--beyond', dest='beyond',
+                      default=0.7,
+                      type='float',
+                      help='Alert if metric is PERCENTAGE beyond comparison value [%default]')
     parser.add_option('--percentile', dest='percentile',
                       default=0,
                       type='int',
@@ -172,12 +177,13 @@ if __name__ == '__main__':
     if options.under:
         options.over = False
 
+    if options.over:
+        check_func = lambda x, y: x > y
+    else:
+        check_func = lambda x, y: x < y
+
     if options.confidence_bands:
         targets = [options.target[0], 'holtWintersConfidenceBands(%s)' % options.target[0]]
-        if options.over:
-            check_func = lambda x, y: x > y
-        else:
-            check_func = lambda x, y: x < y
         check_threshold = None
         from_slice = int(options._from) * -1
         real_from = '-2w'
@@ -197,10 +203,6 @@ if __name__ == '__main__':
         try:
             warn = float(options.warning)
             crit = float(options.critical)
-            if options.over:
-                check_func = lambda x, y: x > y
-            else:
-                check_func = lambda x, y: x < y
         except ValueError:
             print 'ERROR: WARNING or CRITICAL threshold is not a number\n'
             parser.print_help()
@@ -215,6 +217,7 @@ if __name__ == '__main__':
             actual = [x[0] for x in metric_data[0].get('datapoints', [])][from_slice:]
             target_name = metric_data[0]['target']
             kwargs = {}
+            kwargs['beyond'] = options.beyond
 
             if options.over:
                 kwargs['bounds'] = [x[0] for x in metric_data[1].get('datapoints', [])][from_slice:]
@@ -223,6 +226,7 @@ if __name__ == '__main__':
 
             if options.compare:
                 kwargs['compare'] = [x[0] for x in metric_data[3].get('datapoints', [])][from_slice:]
+
                 if not any(kwargs['compare']):
                     print 'CRITICAL: No compare target output from Graphite!'
                     sys.exit(NAGIOS_STATUSES['CRITICAL'])
