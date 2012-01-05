@@ -136,6 +136,10 @@ if __name__ == '__main__':
                       type='int',
                       metavar='PERCENT',
                       help='Use nPercentile Graphite function on the target (returns one datapoint)')
+    parser.add_option('--empty-ok', dest='empty_ok',
+                      default=False,
+                      action='store_true',
+                      help='Empty data from Graphite is OK')
     parser.add_option('--confidence', dest='confidence_bands',
                       default=False,
                       action='store_true',
@@ -219,16 +223,27 @@ if __name__ == '__main__':
 
             if options.compare:
                 kwargs['compare'] = [x[0] for x in metric_data[3].get('datapoints', [])][from_slice:]
+                if not all(kwargs['compare']):
+                    print 'CRITICAL: No compare target output from Graphite!'
+                    sys.exit(NAGIOS_STATUSES['CRITICAL'])
 
-            if actual and kwargs['bounds']:
+            if all(actual) and all(kwargs['bounds']):
                 points_oob = graphite.check_datapoints(actual, check_func, **kwargs)
                 check_output[target_name] = graphite.generate_output(actual,
                                                                      points_oob,
                                                                      count=options.count,
                                                                      target=target_name)
+
+            else:
+                print 'CRITICAL: No output from Graphite for target(s): %s' % ', '.join(targets)
+                sys.exit(NAGIOS_STATUSES['CRITICAL'])
         else:
             for target in metric_data:
                 datapoints = [x[0] for x in target.get('datapoints', []) if x]
+                if not all(datapoints) and not options.empty_ok:
+                    print 'CRITICAL: No output from Graphite for target(s): %s' % ', '.join(targets)
+                    sys.exit(NAGIOS_STATUSES['CRITICAL'])
+
                 crit_oob = graphite.check_datapoints(datapoints, check_func, threshold=crit)
                 warn_oob = graphite.check_datapoints(datapoints, check_func, threshold=warn)
                 check_output[target['target']] = graphite.generate_output(datapoints,
@@ -239,7 +254,11 @@ if __name__ == '__main__':
                                                                           warning=warn,
                                                                           critical=crit)
     else:
-        print 'CRITICAL: No output from Graphite!'
+        if options.empty_ok and isinstance(metric_data, list):
+            print 'OK: No output from Graphite for target(s): %s' % ', '.join(targets)
+            sys.exit(NAGIOS_STATUSES['OK'])
+
+        print 'CRITICAL: No output from Graphite for target(s): %s' % ', '.join(targets)
         sys.exit(NAGIOS_STATUSES['CRITICAL'])
 
     for target, messages in check_output.iteritems():
