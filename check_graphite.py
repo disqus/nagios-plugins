@@ -249,7 +249,7 @@ if __name__ == '__main__':
                 sys.exit(NAGIOS_STATUSES['CRITICAL'])
         else:
             for target in metric_data:
-                datapoints = [x[0] for x in target.get('datapoints', []) if isinstance(x, Real)]
+                datapoints = [x[0] for x in target.get('datapoints', []) if isinstance(x[0], Real)]
                 if not graphite.has_numbers(datapoints) and not options.empty_ok:
                     print 'CRITICAL: No output from Graphite for target(s): %s' % ', '.join(targets)
                     sys.exit(NAGIOS_STATUSES['CRITICAL'])
