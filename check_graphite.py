@@ -56,9 +56,9 @@ class Graphite(object):
             return [x for x in datapoints if isinstance(x, Real) and check_func(x, kwargs['threshold'])]
         elif 'bounds' in kwargs:
             if 'compare' in kwargs:
-                return [datapoints[x] for x in xrange(len(datapoints)) if isinstance(datapoints[x], Real) and check_func(datapoints[x] / kwargs['bounds'][x], kwargs['beyond']) and check_func(datapoints[x], kwargs['compare'][x])]
+              return [datapoints[x] for x in xrange(len(datapoints)) if all([datapoints[x], kwargs['bounds'][x], kwargs['compare'][x]]) and check_func(datapoints[x] / kwargs['bounds'][x], kwargs['beyond']) and check_func(datapoints[x], kwargs['compare'][x])]
             else:
-                return [datapoints[x] for x in xrange(len(datapoints)) if isinstance(x, Real) and check_func(datapoints[x], kwargs['bounds'][x])]
+                return [datapoints[x] for x in xrange(len(datapoints)) if all([datapoints[x], kwargs['bounds'][x]]) and check_func(datapoints[x], kwargs['bounds'][x])]
 
     def fetch_metrics(self):
         try:
