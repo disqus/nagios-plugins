@@ -13,6 +13,8 @@ import urllib
 import urllib2
 import sys
 
+from numbers import Real
+
 NAGIOS_STATUSES = {
     'OK': 0,
     'WARNING': 1,
@@ -51,12 +53,12 @@ class Graphite(object):
             The list of out of bounds datapoints
         """
         if 'threshold' in kwargs:
-            return [x for x in datapoints if x and check_func(x, kwargs['threshold'])]
+            return [x for x in datapoints if isinstance(x, Real) and check_func(x, kwargs['threshold'])]
         elif 'bounds' in kwargs:
             if 'compare' in kwargs:
-                return [datapoints[x] for x in xrange(len(datapoints)) if datapoints[x] and check_func(datapoints[x] / kwargs['bounds'][x], kwargs['beyond']) and check_func(datapoints[x], kwargs['compare'][x])]
+                return [datapoints[x] for x in xrange(len(datapoints)) if isinstance(datapoints[x], Real) and check_func(datapoints[x] / kwargs['bounds'][x], kwargs['beyond']) and check_func(datapoints[x], kwargs['compare'][x])]
             else:
-                return [datapoints[x] for x in xrange(len(datapoints)) if x and check_func(datapoints[x], kwargs['bounds'][x])]
+                return [datapoints[x] for x in xrange(len(datapoints)) if isinstance(x, Real) and check_func(datapoints[x], kwargs['bounds'][x])]
 
     def fetch_metrics(self):
         try:
@@ -95,13 +97,13 @@ class Graphite(object):
         if len(args) > 1:
             (warn_oob, crit_oob) = args
         else:
-            crit_oob = [x for x in args[0] if x]
+            crit_oob = [x for x in args[0] if isinstance(x, Real)]
             warn_oob = []
 
-        if crit_oob and len(crit_oob) >= count:
+        if self.has_numbers(crit_oob) and len(crit_oob) >= count:
             check_output['CRITICAL'].append('%s [crit=%f|datapoints=%s]' %\
                 (target, critical, ','.join(['%s' % str(x) for x in crit_oob])))
-        elif warn_oob and len(warn_oob) >= count:
+        elif self.has_numbers(warn_oob) and len(warn_oob) >= count:
             check_output['WARNING'].append('%s [warn=%f|datapoints=%s]' %\
                 (target, warning, ','.join(['%s' % str(x) for x in warn_oob])))
         else:
@@ -109,6 +111,12 @@ class Graphite(object):
                 (target, warning, critical, ','.join(['%s' % str(x) for x in datapoints])))
 
         return check_output
+
+    def has_numbers(self, lst):
+        try:
+            return any([isinstance(x, Real) for x in lst])
+        except TypeError:
+            return False
 
 
 if __name__ == '__main__':
@@ -175,12 +183,10 @@ if __name__ == '__main__':
     real_from = options._from
 
     if options.under:
-        options.over = False
-
-    if options.over:
-        check_func = lambda x, y: x > y
-    else:
         check_func = lambda x, y: x < y
+        options.over = False
+    else:
+        check_func = lambda x, y: x > y
 
     if options.confidence_bands:
         targets = [options.target[0], 'holtWintersConfidenceBands(%s)' % options.target[0]]
@@ -227,11 +233,11 @@ if __name__ == '__main__':
             if options.compare:
                 kwargs['compare'] = [x[0] for x in metric_data[3].get('datapoints', [])][from_slice:]
 
-                if not any(kwargs['compare']):
+                if not graphite.has_numbers(kwargs['compare']):
                     print 'CRITICAL: No compare target output from Graphite!'
                     sys.exit(NAGIOS_STATUSES['CRITICAL'])
 
-            if any(actual) and any(kwargs['bounds']):
+            if graphite.has_numbers(actual) and graphite.has_numbers(kwargs['bounds']):
                 points_oob = graphite.check_datapoints(actual, check_func, **kwargs)
                 check_output[target_name] = graphite.generate_output(actual,
                                                                      points_oob,
@@ -243,8 +249,8 @@ if __name__ == '__main__':
                 sys.exit(NAGIOS_STATUSES['CRITICAL'])
         else:
             for target in metric_data:
-                datapoints = [x[0] for x in target.get('datapoints', []) if x]
-                if not any(datapoints) and not options.empty_ok:
+                datapoints = [x[0] for x in target.get('datapoints', []) if isinstance(x, Real)]
+                if not graphite.has_numbers(datapoints) and not options.empty_ok:
                     print 'CRITICAL: No output from Graphite for target(s): %s' % ', '.join(targets)
                     sys.exit(NAGIOS_STATUSES['CRITICAL'])
 
